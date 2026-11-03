@@ -1,0 +1,63 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Voice receptionist: live web call test</title>
+<style>
+ body{font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;background:#0f1115;color:#e8e8e8;margin:0;padding:28px}
+ h1{font-size:22px;margin:0 0 4px} .sub{color:#9aa3ad;font-size:14px;margin-bottom:18px}
+ #status{display:inline-block;padding:4px 10px;border-radius:12px;background:#24303c;font-size:13px;margin-bottom:14px}
+ .row{margin:8px 0;padding:10px 14px;border-radius:10px;max-width:900px;line-height:1.4;font-size:15px}
+ .assistant{background:#1d2a22;border-left:4px solid #3ecf8e}
+ .user{background:#1f2433;border-left:4px solid #6c8cff}
+ .tool{background:#2a2418;border-left:4px solid #e0a43a;font-family:Menlo,monospace;font-size:13px}
+ .who{font-size:12px;color:#9aa3ad;margin-bottom:2px}
+</style></head>
+<body>
+<h1 id="title">Voice AI receptionist: live web call</h1>
+<div class="sub">Vapi web call, Claude as the brain, server tools on FastAPI. The caller is a scripted synthetic voice.</div>
+<div id="status">idle</div>
+<div id="log"></div>
+<script type="module">
+
+// Route the "microphone" to a Web Audio stream so the test can speak pre-recorded caller lines.
+window.__state = { speaking: false, lastSpeechEnd: 0, started: false, ended: false, events: [], callId: null, error: null };
+const ctx = new AudioContext({ sampleRate: 48000 });
+const dest = ctx.createMediaStreamDestination();
+const osc = ctx.createConstantSource(); osc.offset.value = 0; osc.connect(dest); osc.start();
+const fakeTrack = dest.stream.getAudioTracks()[0];
+navigator.mediaDevices.getUserMedia = async () => { window.__state.gum = (window.__state.gum || 0) + 1; return new MediaStream([fakeTrack.clone()]); };
+// Import the SDK only after the override, so it can't hold on to the real microphone.
+const { default: Vapi } = await import("https://esm.sh/@vapi-ai/web@2");
+
+const log = document.getElementById("log"), status = document.getElementById("status");
+function row(cls, who, text) {
+  const d = document.createElement("div"); d.className = "row " + cls;
+  d.innerHTML = `<div class="who">${who}</div>`; d.appendChild(document.createTextNode(text)); log.appendChild(d);
+  window.scrollTo(0, document.body.scrollHeight);
+}
+window.setup = (publicKey) => {
+  const vapi = new Vapi(publicKey); window.__vapi = vapi;
+  vapi.on("call-start", async () => {
+    __state.started = true; status.textContent = "call live";
+    const daily = vapi.getDailyCallObject && vapi.getDailyCallObject();
+    if (daily) { await daily.setInputDevicesAsync({ audioSource: fakeTrack }); __state.inputSet = true; }
+  });
+  vapi.on("call-end", () => { __state.ended = true; status.textContent = "call ended"; });
+  vapi.on("speech-start", () => { __state.speaking = true; });
+  vapi.on("speech-end", () => { __state.speaking = false; __state.lastSpeechEnd = Date.now(); });
+  vapi.on("error", (e) => { __state.error = String(e?.message || JSON.stringify(e)); status.textContent = "error"; });
+  vapi.on("message", (m) => {
+    __state.events.push(m.type);
+    if (m.type === "transcript" && m.transcriptType === "final")
+      row(m.role === "assistant" ? "assistant" : "user", m.role === "assistant" ? "RECEPTIONIST (AI)" : "CALLER", m.transcript);
+    if (m.type === "tool-calls")
+      for (const tc of m.toolCallList || []) row("tool", "SERVER TOOL CALL", `${tc.function.name}(${JSON.stringify(tc.function.arguments)})`);
+  });
+};
+window.startCall = async (assistantId) => { await ctx.resume(); const c = await window.__vapi.start(assistantId); __state.callId = c?.id || null; return __state.callId; };
+window.stopCall = () => window.__vapi.stop();
+window.playClip = async (url) => {
+  const ab = await ctx.decodeAudioData(await (await fetch(url)).arrayBuffer());
+  const src = ctx.createBufferSource(); src.buffer = ab; src.connect(dest); src.start();
+  await new Promise(r => src.onended = r);
+};
+</script>
+</body></html>
