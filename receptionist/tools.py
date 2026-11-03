@@ -67,10 +67,12 @@ class Receptionist:
         if day is not None:
             slots = self.scheduler.free_slots(day, now)
             if slots:
-                times = ", ".join(spoken(s).split(" at ")[1] for s in slots[:8])
-                more = f" and {len(slots) - 8} more" if len(slots) > 8 else ""
+                def times(part):
+                    return ", ".join(spoken(s).split(" at ")[1] for s in part) or "none"
+                morning = [s for s in slots if s.hour < 12]
+                afternoon = [s for s in slots if s.hour >= 12]
                 return (f"Today is {now:%A %d %B %Y}. Free 30-minute slots on {day:%A %d %B} "
-                        f"(date {day.isoformat()}): {times}{more}.")
+                        f"(date {day.isoformat()}). Morning: {times(morning)}. Afternoon: {times(afternoon)}.")
             alt = next(self.scheduler.next_days_with_slots(day, 14, now), None)
             if alt is None:
                 return f"Today is {now:%A %d %B %Y}. Nothing free on {day:%A %d %B} or in the two weeks after."

@@ -23,8 +23,9 @@ def build_receptionist(settings: Settings, calendar=None, notifier: Optional[Not
     if calendar is None:
         if settings.calendar_backend == "google":
             from .calendar.google import GoogleCalendar, service_account_token_provider
+            info = json.loads(settings.google_service_account_json) if settings.google_service_account_json else None
             calendar = GoogleCalendar(settings.google_calendar_id,
-                                      service_account_token_provider(settings.google_service_account_file),
+                                      service_account_token_provider(settings.google_service_account_file, info),
                                       timezone=settings.timezone)
         else:
             calendar = LocalCalendar(settings.data_dir / "calendar.sqlite3")

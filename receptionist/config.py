@@ -30,6 +30,7 @@ class Settings:
     calendar_backend: str = "local"
     google_calendar_id: Optional[str] = None
     google_service_account_file: Optional[str] = None
+    google_service_account_json: Optional[str] = None
     team_email: Optional[str] = None
     smtp_host: Optional[str] = None
     smtp_port: int = 587
@@ -50,6 +51,7 @@ class Settings:
             calendar_backend=env("CALENDAR_BACKEND", "local"),
             google_calendar_id=env("GOOGLE_CALENDAR_ID"),
             google_service_account_file=env("GOOGLE_SERVICE_ACCOUNT_FILE"),
+            google_service_account_json=env("GOOGLE_SERVICE_ACCOUNT_JSON"),
             team_email=env("TEAM_EMAIL"),
             smtp_host=env("SMTP_HOST"),
             smtp_port=int(env("SMTP_PORT", "587")),

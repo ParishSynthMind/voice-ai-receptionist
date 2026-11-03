@@ -35,8 +35,9 @@ flowchart LR
 
 - **The calendar is an adapter.** Anything with two methods, `busy(start, end)` and `create_event(booking)`, works as a calendar. Slot logic (opening hours, 30-minute slots, minimum notice, double-booking check) lives in one place, `receptionist/scheduling.py`, so every backend behaves the same.
   - `LocalCalendar`: SQLite plus an `.ics` export at `/calendar.ics` that Google Calendar, Outlook or Apple Calendar can subscribe to. Used for the live tests.
-  - `GoogleCalendar`: free/busy and event insert through the Google Calendar REST API with a service account. **Unit-tested against mocked HTTP only, not live-tested.**
+  - `GoogleCalendar`: free/busy and event insert through the Google Calendar REST API with a service account (key from a file or straight from a secret store via `GOOGLE_SERVICE_ACCOUNT_JSON`; needs `pip install google-auth requests`). Unit-tested against mocked HTTP and tested live (see below).
 - **Tools answer in plain sentences.** A voice agent has to say the result out loud, so each tool returns something speakable ("Booked. Sam Rivera, new patient check-up, Wednesday 4 November at 9:30am") rather than raw JSON.
+- **The whole day, split in two.** For a named day the tool lists every free slot as "Morning: ... Afternoon: ...". An earlier version listed only the first eight, and a live call where the caller asked for "the first time after 2pm" stalled because the afternoon was hidden from Claude.
 - **Dates are resolved by the server, not the model.** The caller says "tomorrow" or "Friday"; the tool works out the date in the business's time zone and tells Claude today's date in every result, so the model never has to guess it.
 - **Fails out loud, not silent.** If the calendar can't be reached, the tool tells Claude to offer a message and a call-back instead of leaving dead air, and the error is written to the call log.
 - **Caller words are data.** Names and reasons are cleaned (control characters stripped, length capped) before they reach a calendar or an email, and the prompt tells Claude to ignore instructions from callers.
@@ -90,24 +91,28 @@ pytest -v
 
 ## Tested live
 
-**Tested live on 3 November 2026** on a Vapi account with its free starter credit. The service ran on a Mac behind a Cloudflare quick tunnel; the calendar was the local SQLite store; team emails went out over Gmail SMTP to a test inbox.
+**Tested live on 3 November 2026** on a Vapi account with its free starter credit. The service ran on a Mac behind a Cloudflare quick tunnel; team emails went out over Gmail SMTP to a test inbox. The Google Calendar booking used a real Google Calendar (a dedicated demo calendar shared with a service account); the other two calls used the local SQLite calendar.
 
 | Call | What happened | Length | Vapi cost |
 |---|---|---|---|
 | Booking | Caller asked about parking (answered from the knowledge base), asked for the earliest slot tomorrow morning, gave name and number, confirmed. `check_availability`, `book_appointment` and `send_summary` all ran; the booking appeared in the calendar store and `.ics` export with the call ID attached; the summary email went out (confirmed in the sending mailbox). | 2m 2s | $0.24 |
+| Google Calendar booking | Caller asked the price of a hygienist clean (55 pounds, from the knowledge base), then for the first time after 2pm on Thursday. Free slots came from Google's free/busy API; Claude offered 2:30pm, read it back, and `book_appointment` wrote the event into Google Calendar (checked through the API and in the Calendar web app, then deleted). Summary email went out. | 1m 38s | $0.17 |
 | Handover | Caller with toothache asked for a real person. Claude collected name and call-back number, called `handover` with `urgent: true`, told the caller the team would ring back within 15 minutes, then sent the summary. Both emails went out (confirmed in the sending mailbox). | 1m 0s | $0.11 |
+
+![The booking in Google Calendar](media/google-calendar-booking.png)
+
+*The event the receptionist created, open in Google Calendar. The viewer is on Dubai time (GMT+4), so 2:30pm London shows as 6:30pm.*
 
 ![Calendar store and call log after the live tests](media/calendar-and-call-log.png)
 
-More evidence in `media/`: the handover transcript (`live-handover-call.png`), Vapi's own call log for the booking call (`vapi-dashboard-call-log.png`) and the exported calendar (`live-test-calendar.ics`).
+More evidence in `media/`: the Google booking transcript (`live-google-booking-call.png`), the handover transcript (`live-handover-call.png`), Vapi's own call log for the booking call (`vapi-dashboard-call-log.png`) and the exported calendar (`live-test-calendar.ics`).
 
 ### What was not live-tested, honestly
 
 - **A real phone call.** The assistant is attached to a Vapi phone number, but the recorded tests are Vapi **web calls**. Free Vapi numbers have a daily outbound limit, so an automated caller could not dial in, and a human test call to the number was not recorded. The tools and the assistant are the same either way; only the audio transport differs.
 - **A real human voice.** The caller in the tests is a synthetic voice reading a script, not a person. Vapi's speech-to-text handled it well (it heard "Harbour" as "Harbor", which does not matter for a call).
-- **Google Calendar.** The adapter is unit-tested against mocked Google API responses only.
 - **Live transfer to a person.** `transferCall` is only added when `TRANSFER_NUMBER` is set; the live handover test covered the email alert and call-back promise, not a transfer.
-- **Model.** The brief was Claude Sonnet 5.5, but Vapi's Anthropic provider list at build time stopped at `claude-sonnet-5`, so that is what the live calls used (through Vapi's own Anthropic access, no separate key). Change `VAPI_ANTHROPIC_MODEL` in `receptionist/assistant.py` when Vapi adds newer models.
+- **Model.** The target was Claude Sonnet 5.5, but Vapi's Anthropic provider list at build time stopped at `claude-sonnet-5`, so that is what the live calls used (through Vapi's own Anthropic access, no separate key). Change `VAPI_ANTHROPIC_MODEL` in `receptionist/assistant.py` when Vapi adds newer models.
 - **Production hosting.** The tunnel is for testing. In production the service would sit on any small host with HTTPS (a container on Render, Fly.io, AWS and so on) and the SQLite files would move to a managed database.
 
 ## Project layout

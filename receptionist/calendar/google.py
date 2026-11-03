@@ -49,14 +49,18 @@ def _parse(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
-def service_account_token_provider(path: str) -> Callable[[], str]:
-    """Token provider from a service-account JSON key (needs `pip install google-auth`).
-    Share the calendar with the service account's email so it can write events."""
+def service_account_token_provider(path: Optional[str] = None, info: Optional[dict] = None) -> Callable[[], str]:
+    """Token provider from a service-account key, given as a JSON file path or as the parsed JSON
+    (handy when the key comes from a secret store rather than a file). Needs `pip install google-auth requests`.
+    Share the calendar with the service account's email ("Make changes to events") so it can write."""
     from google.oauth2 import service_account  # optional dependency
     from google.auth.transport.requests import Request
 
-    creds = service_account.Credentials.from_service_account_file(
-        path, scopes=["https://www.googleapis.com/auth/calendar"])
+    scopes = ["https://www.googleapis.com/auth/calendar"]
+    if info is not None:
+        creds = service_account.Credentials.from_service_account_info(info, scopes=scopes)
+    else:
+        creds = service_account.Credentials.from_service_account_file(path, scopes=scopes)
 
     def token() -> str:
         if not creds.valid:

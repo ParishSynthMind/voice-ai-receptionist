@@ -5,6 +5,8 @@ def test_check_availability_for_a_named_day(receptionist):
     out = receptionist.run("check_availability", {"date": "tomorrow"}, CALL)
     assert "Tuesday 04 November" in out and "(date 2025-11-04)" in out and "9am" in out
     assert "Today is Monday 03 November 2025" in out
+    # the whole day is listed, split so the caller can ask for "afternoon"
+    assert "Morning: 9am, 9:30am" in out and "Afternoon: 12pm" in out and "4:30pm." in out
 
 
 def test_check_availability_without_date_lists_next_days(receptionist):
