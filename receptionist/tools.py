@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, Optional
 
 from .calendar.base import Booking, CalendarAdapter
 from .calllog import CallLog
+from .disclosure import DEFAULT_HANDOVER
 from .notify import Notifier
 from .scheduling import Scheduler, parse_time, resolve_day, spoken
 
@@ -23,12 +24,13 @@ class ToolError(Exception):
 
 class Receptionist:
     def __init__(self, scheduler: Scheduler, calendar: CalendarAdapter, notifier: Notifier, log: CallLog,
-                 business_name: str):
+                 business_name: str, handover_notice: str = DEFAULT_HANDOVER):
         self.scheduler = scheduler
         self.calendar = calendar
         self.notifier = notifier
         self.log = log
         self.business_name = business_name
+        self.handover_notice = handover_notice
         self.handlers: Dict[str, Callable[..., str]] = {
             "check_availability": self.check_availability,
             "book_appointment": self.book_appointment,
@@ -137,5 +139,6 @@ class Receptionist:
         if call.get("id"):
             self.log.mark(call["id"], handover=1, outcome=f"Handed over: {reason}")
         when = "within 15 minutes" if urgent else "within the hour, during opening hours"
-        return (f"The team has been alerted and will call {caller} back on {phone} {when}. "
+        notice = f"{self.handover_notice} " if self.handover_notice else ""
+        return (f"{notice}The team has been alerted and will call {caller} back on {phone} {when}. "
                 f"Tell the caller exactly that.")

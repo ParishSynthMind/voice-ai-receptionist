@@ -27,7 +27,7 @@ def main() -> None:
     a = p.parse_args()
     s = Settings.from_env()
     body = build_assistant(s.business_name, s.timezone, s.knowledge_base, a.server_url, s.webhook_secret,
-                           a.transfer_number)
+                           a.transfer_number, disclosure=s.disclosure, handover_notice=s.handover_notice)
     with client() as c:
         if a.assistant_id:
             assistant = check(c.patch(f"/assistant/{a.assistant_id}", json=body))

@@ -81,13 +81,17 @@ VAPI_PUBLIC_KEY=... python scripts/web_test_call.py --assistant-id <id> --clips 
 VAPI_API_KEY=... python scripts/get_call.py <call-id>      # transcript and tool calls from Vapi's log
 ```
 
+## AI disclosure (EU AI Act Article 50)
+
+Every call opens with the receptionist saying it is an AI: "Hi, this is Elliot, an AI assistant for Harbour Dental Clinic. How can I help today?" (the Vapi `firstMessage`, so web test calls get it too). On a handover the caller hears "I'm an AI assistant, so I'm handing you over to a person on the team.", and the same line opens the live transfer message when `TRANSFER_NUMBER` is set. The text is set with `AI_DISCLOSURE` (and `AGENT_NAME`); blanking it falls back to the default. It can only be removed when `AI_DISCLOSURE_REMOVED_BY_WRITTEN_REQUEST` holds a reference to the client's recorded written request. This is covered by offline tests; the live calls listed below were recorded before it was added, so their transcripts and screenshots still show the old greeting.
+
 ## Tests
 
 ```bash
 pytest -v
 ```
 
-35 tests, no network and no secrets (they also run on GitHub Actions on every push). They cover every tool call (availability for a named day, no day, a bad day, a past day and a closed day; booking, double-booking, outside opening hours, missing details, caller-ID fallback; summary email; handover email and log flag; calendar failure fallback; unknown tool), the webhook end to end (secret check, arguments as JSON object or string, several tool calls in one message, end-of-call report logging, `.ics` export), slot maths, date and time parsing, the local calendar and `.ics` format, the Google Calendar adapter against mocked HTTP, and the assistant definition.
+45 tests, no network and no secrets (they also run on GitHub Actions on every push). They cover every tool call (availability for a named day, no day, a bad day, a past day and a closed day; booking, double-booking, outside opening hours, missing details, caller-ID fallback; summary email; handover email and log flag; calendar failure fallback; unknown tool), the webhook end to end (secret check, arguments as JSON object or string, several tool calls in one message, end-of-call report logging, `.ics` export), slot maths, date and time parsing, the local calendar and `.ics` format, the Google Calendar adapter against mocked HTTP, the assistant definition, and the AI disclosure.
 
 ## Tested live
 
