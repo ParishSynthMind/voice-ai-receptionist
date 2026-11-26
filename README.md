@@ -7,6 +7,8 @@ An AI receptionist that talks to callers. It runs on [Vapi](https://vapi.ai) (th
 - **send_summary**: emails the team a short summary of every call
 - **handover**: when a caller asks for a person (or is in pain), alerts the team to call them back, marked urgent when it can't wait
 
+**Status:** tested live on 3 November 2026 with three real Vapi web calls (booking, calendar booking, urgent hand-over) using a synthetic caller voice. Not tested: a call over the phone network, a human caller, live transfer to a person, or production hosting.
+
 Questions like "do you have parking?" are answered from a small knowledge base. Every call and every tool call is logged.
 
 ![Live test call: FAQ, availability, booking and summary](media/live-booking-call.png)
